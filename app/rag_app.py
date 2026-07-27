@@ -1,4 +1,5 @@
 import os
+from langfuse import observe
 
 # Hardcoded doc store — no vector DB needed for this demo
 DOCS = [
@@ -24,6 +25,7 @@ def retrieve(query, docs=DOCS, top_k=2):
     return scored[:top_k]
 
 
+@observe()
 def answer(query):
     context = "\n".join(retrieve(query))
     # MOCK: returns retrieved context as the "answer" until a real LLM is wired in
