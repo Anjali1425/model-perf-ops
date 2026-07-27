@@ -1,0 +1,69 @@
+prompts:
+  - "Context:\n{{context}}\n\nQuestion: {{question}}"
+providers:
+  - anthropic:messages:claude-sonnet-5
+tests:
+  - vars:
+      context: "Return policy: items can be returned within 30 days with a receipt.\nGift cards: gift cards are non-refundable and do not expire."
+      question: "How long do I have to return something?"
+    assert:
+      - type: contains
+        value: "30 days"
+  - vars:
+      context: "Shipping: standard shipping takes 5-7 business days.\nExpedited shipping: 2-day shipping is available for an additional $15."
+      question: "How long does standard shipping take?"
+    assert:
+      - type: contains
+        value: "5-7 business days"
+  - vars:
+      context: "Expedited shipping: 2-day shipping is available for an additional $15.\nShipping: standard shipping takes 5-7 business days."
+      question: "Is expedited shipping available?"
+    assert:
+      - type: contains
+        value: "2-day shipping"
+  - vars:
+      context: "Payment methods: we accept Visa, Mastercard, AmEx, and PayPal.\nDamaged items: if your item arrives damaged, contact support within 7 days."
+      question: "What payment methods do you accept?"
+    assert:
+      - type: contains
+        value: "Visa"
+  - vars:
+      context: "Order cancellation: orders can be cancelled within 24 hours of placement.\nReturn policy: items can be returned within 30 days with a receipt."
+      question: "Can I cancel my order?"
+    assert:
+      - type: contains
+        value: "24 hours"
+  - vars:
+      context: "Damaged items: if your item arrives damaged, contact support within 7 days.\nGift cards: gift cards are non-refundable and do not expire."
+      question: "What do I do if my item arrives damaged?"
+    assert:
+      - type: contains
+        value: "7 days"
+  - vars:
+      context: "Gift cards: gift cards are non-refundable and do not expire.\nInternational shipping: we ship to Canada and the UK; duties are the buyer's responsibility."
+      question: "Are gift cards refundable?"
+    assert:
+      - type: contains
+        value: "non-refundable"
+  - vars:
+      context: "Store hours: customer support is available Monday–Friday, 9am–6pm EST.\nExpedited shipping: 2-day shipping is available for an additional $15."
+      question: "When is customer support available?"
+    assert:
+      - type: contains
+        value: "9am"
+  - vars:
+      # NOTE: retrieve()'s keyword-overlap matcher misses the "International shipping" doc here
+      # ("internationally" doesn't substring-match "international") and surfaces the wrong context.
+      # Left as-is on purpose: this test documents a real retrieval gap and should fail
+      # until retrieve() is improved, which is exactly what this gate is for.
+      context: "Shipping: standard shipping takes 5-7 business days.\nExpedited shipping: 2-day shipping is available for an additional $15."
+      question: "Do you ship internationally?"
+    assert:
+      - type: contains
+        value: "Canada"
+  - vars:
+      context: "Loyalty program: earn 1 point per dollar spent; 100 points = $1 reward.\nInternational shipping: we ship to Canada and the UK; duties are the buyer's responsibility."
+      question: "How does the loyalty program work?"
+    assert:
+      - type: contains
+        value: "1 point"

@@ -1,5 +1,10 @@
 import os
+from anthropic import Anthropic
+from dotenv import load_dotenv
 from langfuse import observe
+
+load_dotenv()
+client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 # Hardcoded doc store — no vector DB needed for this demo
 DOCS = [
@@ -28,8 +33,12 @@ def retrieve(query, docs=DOCS, top_k=2):
 @observe()
 def answer(query):
     context = "\n".join(retrieve(query))
-    # MOCK: returns retrieved context as the "answer" until a real LLM is wired in
-    return f"[MOCK RESPONSE] Based on the context: {context}"
+    response = client.messages.create(
+        model="claude-sonnet-5",
+        max_tokens=512,
+        messages=[{"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"}]
+    )
+    return response.content[0].text
 
 
 if __name__ == "__main__":
