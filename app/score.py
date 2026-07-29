@@ -65,7 +65,7 @@ def run_evaluation(dataset):
         raise RuntimeError("ANTHROPIC_API_KEY is not set — add it to .env before running.")
 
     llm = llm_factory(
-        "claude-3-5-sonnet-20241022",
+        "claude-haiku-4-5-20251001",
         provider="anthropic",
         client=Anthropic(api_key=api_key),
     )

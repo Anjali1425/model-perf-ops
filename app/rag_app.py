@@ -34,7 +34,7 @@ def retrieve(query, docs=DOCS, top_k=2):
 def answer(query):
     context = "\n".join(retrieve(query))
     response = client.messages.create(
-        model="claude-sonnet-5",
+        model="claude-haiku-4-5-20251001",
         max_tokens=512,
         messages=[{"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"}]
     )
@@ -42,6 +42,32 @@ def answer(query):
 
 
 if __name__ == "__main__":
-    test_query = "How long do I have to return something?"
-    print(f"Q: {test_query}")
-    print(f"A: {answer(test_query)}")
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Ask the RAG app one or more questions.")
+    parser.add_argument("question", nargs="?", help="A single question to ask")
+    parser.add_argument("--file", help="Path to a text file with one question per line")
+    parser.add_argument("-i", "--interactive", action="store_true", help="Ask questions one at a time")
+    args = parser.parse_args()
+
+    if args.interactive:
+        print("Type a question and press Enter. Type 'quit' or Ctrl+D to stop.\n")
+        while True:
+            try:
+                q = input("Q: ").strip()
+            except EOFError:
+                break
+            if not q or q.lower() in ("quit", "exit"):
+                break
+            print(f"A: {answer(q)}\n")
+    else:
+        if args.question:
+            questions = [args.question]
+        else:
+            path = args.file or os.path.join(os.path.dirname(__file__), "questions.txt")
+            with open(path) as f:
+                questions = [line.strip() for line in f if line.strip()]
+
+        for q in questions:
+            print(f"Q: {q}")
+            print(f"A: {answer(q)}\n")

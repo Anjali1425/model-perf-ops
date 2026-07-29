@@ -1,7 +1,7 @@
 prompts:
   - "Context:\n{{context}}\n\nQuestion: {{question}}"
 providers:
-  - anthropic:messages:claude-sonnet-5
+  - anthropic:messages:claude-haiku-4-5-20251001
 tests:
   - vars:
       context: "Return policy: items can be returned within 30 days with a receipt.\nGift cards: gift cards are non-refundable and do not expire."
