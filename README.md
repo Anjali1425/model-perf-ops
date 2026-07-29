@@ -18,3 +18,9 @@ Operationalizing model performance for a RAG assistant.
 - Real embedding-based retrieval, replacing the current keyword-overlap placeholder
 - Promptfoo wired into GitHub Actions, running the launch gate on every push
 - A documented before/after cost comparison once the optimization phases land
+
+## How it works
+
+The operational loop: a query runs through the app, gets traced and scored automatically, reviewed weekly, and any fix has to pass the launch gate before it redeploys.
+
+![Architecture diagram](docs/architecture.svg)
