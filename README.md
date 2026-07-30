@@ -4,7 +4,7 @@ Operationalizing model performance for a RAG assistant.
 
 ## Status
 
-**Built and committed (Phases 0-8):**
+**Built and committed:**
 - A small RAG assistant answering questions over a document set, using Claude Haiku
 - Langfuse instrumentation, every request traced for cost, latency, and token usage
 - RAGAS scoring for automated quality checks (faithfulness, answer relevancy, context precision)
