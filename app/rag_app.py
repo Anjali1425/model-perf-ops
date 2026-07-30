@@ -1,7 +1,7 @@
 import os
 from anthropic import Anthropic
 from dotenv import load_dotenv
-from langfuse import observe
+from langfuse import observe, get_client
 
 load_dotenv()
 client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
@@ -30,13 +30,21 @@ def retrieve(query, docs=DOCS, top_k=2):
     return scored[:top_k]
 
 
-@observe()
+@observe(as_type="generation")
 def answer(query):
     context = "\n".join(retrieve(query))
     response = client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=512,
         messages=[{"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"}]
+    )
+    get_client().update_current_generation(
+        model="claude-haiku-4-5-20251001",
+        usage_details={
+            "input": response.usage.input_tokens,
+            "output": response.usage.output_tokens,
+            "total": response.usage.input_tokens + response.usage.output_tokens,
+        },
     )
     return response.content[0].text
 

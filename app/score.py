@@ -15,12 +15,16 @@ load_dotenv()
 
 from datasets import Dataset
 from anthropic import Anthropic
+from langchain_community.embeddings import HuggingFaceEmbeddings as LangchainHFEmbeddings
+from langfuse import get_client
 from ragas import evaluate
 from ragas.llms import llm_factory
-from ragas.embeddings import HuggingFaceEmbeddings
+from ragas.embeddings import LangchainEmbeddingsWrapper
 from ragas.metrics import faithfulness, answer_relevancy, context_precision
 
 from rag_app import retrieve, answer
+
+METRICS = [faithfulness, answer_relevancy, context_precision]
 
 # Eval set: 10 questions with ground-truth answers
 EVAL_QUESTIONS = [
@@ -38,28 +42,34 @@ EVAL_QUESTIONS = [
 
 
 def build_eval_dataset():
-    """Build the RAGAS dataset using real app outputs."""
-    questions, answers, contexts, ground_truths = [], [], [], []
+    """Build the RAGAS dataset using real app outputs. Also returns each
+    question's Langfuse trace ID so scores can be attached back to it."""
+    questions, answers, contexts, ground_truths, trace_ids = [], [], [], [], []
+    langfuse = get_client()
 
     for question, ground_truth in EVAL_QUESTIONS:
-        retrieved = retrieve(question)
-        response = answer(question)
+        with langfuse.start_as_current_span(name="eval_question"):
+            retrieved = retrieve(question)
+            response = answer(question)
+            trace_ids.append(langfuse.get_current_trace_id())
 
         questions.append(question)
         answers.append(response)
         contexts.append(retrieved)          # list of strings per question
         ground_truths.append(ground_truth)
 
-    return Dataset.from_dict({
+    dataset = Dataset.from_dict({
         "question":     questions,
         "answer":       answers,
         "contexts":     contexts,
         "ground_truth": ground_truths,
     })
+    return dataset, trace_ids
 
 
-def run_evaluation(dataset):
-    """Score the dataset with RAGAS, judged by Claude with local embeddings."""
+def run_evaluation(dataset, trace_ids):
+    """Score the dataset with RAGAS, judged by Claude with local embeddings,
+    then push each metric back to its matching Langfuse trace as a score."""
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise RuntimeError("ANTHROPIC_API_KEY is not set — add it to .env before running.")
@@ -69,24 +79,43 @@ def run_evaluation(dataset):
         provider="anthropic",
         client=Anthropic(api_key=api_key),
     )
-    embeddings = HuggingFaceEmbeddings(model="sentence-transformers/all-MiniLM-L6-v2")
+    # claude-haiku-4-5 rejects requests that set both temperature and top_p;
+    # ragas's instructor adapter defaults to setting both, so drop top_p.
+    llm.model_args.pop("top_p", None)
+    embeddings = LangchainEmbeddingsWrapper(
+        LangchainHFEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    )
 
     result = evaluate(
         dataset,
-        metrics=[faithfulness, answer_relevancy, context_precision],
+        metrics=METRICS,
         llm=llm,
         embeddings=embeddings,
     )
-    return result.to_pandas()[["faithfulness", "answer_relevancy", "context_precision"]].mean()
+    df = result.to_pandas()
+
+    langfuse = get_client()
+    metric_names = [m.name for m in METRICS]
+    for trace_id, (_, row) in zip(trace_ids, df.iterrows()):
+        for metric in metric_names:
+            langfuse.create_score(
+                trace_id=trace_id,
+                name=metric,
+                value=float(row[metric]),
+                data_type="NUMERIC",
+            )
+    langfuse.flush()
+
+    return df[metric_names].mean()
 
 
 if __name__ == "__main__":
     print("Building eval dataset...")
-    dataset = build_eval_dataset()
+    dataset, trace_ids = build_eval_dataset()
     print(f"Eval set: {len(dataset)} questions\n")
 
     print("Running evaluation...")
-    scores = run_evaluation(dataset)
+    scores = run_evaluation(dataset, trace_ids)
 
     print("\n=== RAGAS Scores ===")
     for metric, score in scores.items():
